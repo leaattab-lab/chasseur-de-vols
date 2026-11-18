@@ -1,0 +1,89 @@
+name: Chasseur de vols
+
+# Deux robots ind√©pendants :
+#  - "flash"  : sites de chasseurs de deals (erreurs de prix, promos flash), toutes les 10 min
+#  - "prix"   : scanner de prix, toutes les heures, une ville de d√©part √† la fois
+# Chacun envoie sur Telegram D√àS qu'il trouve quelque chose (rien sinon).
+# L'historique est gard√© dans le cache GitHub (pas de commit √† chaque passage).
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # flash
+    - cron: "5 * * * *"      # prix
+    - cron: "30 6 1 * *"     # entretien mensuel (garde le d√©p√¥t actif)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Que lancer ?"
+        type: choice
+        options: [flash, prix]
+        default: flash
+
+permissions:
+  contents: write
+
+jobs:
+  flash:
+    if: github.event.schedule == '*/10 * * * *' || inputs.mode == 'flash'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    concurrency: { group: flash, cancel-in-progress: false }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements.txt
+      - uses: actions/cache/restore@v4
+        with:
+          path: data/feeds.db
+          key: feeds-db-${{ github.run_id }}
+          restore-keys: feeds-db-
+      - name: V√©rifier les sites de deals
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python -m flightdeals.main --feeds-only --db data/feeds.db
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: data/feeds.db
+          key: feeds-db-${{ github.run_id }}
+
+  prix:
+    if: github.event.schedule == '5 * * * *' || inputs.mode == 'prix'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency: { group: prix, cancel-in-progress: false }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements.txt
+      - uses: actions/cache/restore@v4
+        with:
+          path: data/prices.db
+          key: prices-db-${{ github.run_id }}
+          restore-keys: prices-db-
+      - name: Scanner les prix (une ville de d√©part)
+        env:
+          TRAVELPAYOUTS_TOKEN: ${{ secrets.TRAVELPAYOUTS_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python -m flightdeals.main --slot auto --no-feeds --db data/prices.db
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: data/prices.db
+          key: prices-db-${{ github.run_id }}
+
+  entretien:
+    # GitHub met en pause les t√¢ches planifi√©es d'un d√©p√¥t inactif depuis 60 jours : un petit commit par mois l'√©vite.
+    if: github.event.schedule == '30 6 1 * *'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          date -u +%Y-%m-%dT%H:%MZ > .last-run
+          git config user.name "flight-deals-bot"
+          git config user.email "flight-deals-bot@users.noreply.github.com"
+          git add .last-run && git commit -m "Entretien mensuel" && git push
