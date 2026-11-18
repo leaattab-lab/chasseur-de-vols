@@ -1,0 +1,119 @@
+# =====================================================================
+#  Chasseur de vols — configuration
+#  Tout se règle ici : villes de départ, destinations, seuils de prix.
+#  Les prix sont en euros, pour un ALLER-RETOUR, par personne.
+# =====================================================================
+
+currency: eur
+travelers: 2              # nb de voyageurs : les prix sont aussi affichés "pour 2"
+months_ahead: 11          # on scanne le mois en cours + les 10 suivants
+min_stay_days: 3          # on ignore les séjours plus courts
+max_stay_days: 30         # ... et plus longs
+requests_per_minute: 100  # limite d'appels à l'API (Travelpayouts)
+
+home: MRS                 # ta ville : tous les seuils sont en coût TOTAL depuis Marseille
+
+# Villes de départ. Pour chaque ville ≠ Marseille, on ajoute le trajet Marseille ⇄ ville :
+#   - prix du vol aux bonnes dates (trouvé automatiquement)
+#   - ou ground_one_way : prix estimé d'un aller en train/bus (si moins cher que l'avion)
+origins:
+  MRS: { name: Marseille }
+  PAR: { name: Paris,     positioning_from: MRS, ground_one_way: 40 }   # TGV / Ouigo
+  BCN: { name: Barcelone, positioning_from: MRS, ground_one_way: 45 }   # TGV direct
+  MIL: { name: Milan,     positioning_from: MRS, ground_one_way: 50 }   # train via Nice / bus
+  MAD: { name: Madrid,    positioning_from: MRS }
+  LON: { name: Londres,   positioning_from: MRS }                       # tous les aéroports
+  FRA: { name: Francfort, positioning_from: MRS }
+  AMS: { name: Amsterdam, positioning_from: MRS }
+
+# Seuils par région, en COÛT TOTAL PAR PERSONNE depuis Marseille (trajet vers la ville de départ inclus) :
+#   deal          → bonne affaire (alerte Telegram)
+#   exceptional   → prix "imbattable" (marqué 🚨 en tête du message)
+regions:
+  usa_est:   { label: "États-Unis côte Est & Canada", deal: 380, exceptional: 300 }
+  usa_ouest: { label: "États-Unis côte Ouest",        deal: 460, exceptional: 370 }
+  latam:     { label: "Mexique",                      deal: 500, exceptional: 400 }
+  asie_est:  { label: "Japon, Corée, Chine",          deal: 560, exceptional: 450 }
+  asie_se:   { label: "Asie du Sud-Est",              deal: 520, exceptional: 420 }
+  oceanie:   { label: "Océanie",                      deal: 880, exceptional: 740 }
+
+# Codes IATA "ville" (NYC = JFK + Newark + LaGuardia, TYO = Narita + Haneda, ...)
+destinations:
+  NYC: { name: New York,       region: usa_est,   flag: "🇺🇸" }
+  BOS: { name: Boston,         region: usa_est,   flag: "🇺🇸" }
+  WAS: { name: Washington,     region: usa_est,   flag: "🇺🇸" }
+  CHI: { name: Chicago,        region: usa_est,   flag: "🇺🇸" }
+  MIA: { name: Miami,          region: usa_est,   flag: "🇺🇸" }
+  ORL: { name: Orlando,        region: usa_est,   flag: "🇺🇸" }
+  YTO: { name: Toronto,        region: usa_est,   flag: "🇨🇦" }
+  YMQ: { name: Montréal,       region: usa_est,   flag: "🇨🇦" }
+  LAX: { name: Los Angeles,    region: usa_ouest, flag: "🇺🇸" }
+  SFO: { name: San Francisco,  region: usa_ouest, flag: "🇺🇸" }
+  LAS: { name: Las Vegas,      region: usa_ouest, flag: "🇺🇸" }
+  SEA: { name: Seattle,        region: usa_ouest, flag: "🇺🇸" }
+  MEX: { name: Mexico,         region: latam,     flag: "🇲🇽" }
+  CUN: { name: Cancún,         region: latam,     flag: "🇲🇽" }
+  TYO: { name: Tokyo,          region: asie_est,  flag: "🇯🇵" }
+  OSA: { name: Osaka,          region: asie_est,  flag: "🇯🇵" }
+  SEL: { name: Séoul,          region: asie_est,  flag: "🇰🇷" }
+  HKG: { name: Hong Kong,      region: asie_est,  flag: "🇭🇰" }
+  TPE: { name: Taipei,         region: asie_est,  flag: "🇹🇼" }
+  SHA: { name: Shanghai,       region: asie_est,  flag: "🇨🇳" }
+  BKK: { name: Bangkok,        region: asie_se,   flag: "🇹🇭" }
+  HKT: { name: Phuket,         region: asie_se,   flag: "🇹🇭" }
+  SIN: { name: Singapour,      region: asie_se,   flag: "🇸🇬" }
+  KUL: { name: Kuala Lumpur,   region: asie_se,   flag: "🇲🇾" }
+  DPS: { name: Bali,           region: asie_se,   flag: "🇮🇩" }
+  SGN: { name: Hô Chi Minh,    region: asie_se,   flag: "🇻🇳" }
+  HAN: { name: Hanoï,          region: asie_se,   flag: "🇻🇳" }
+  MNL: { name: Manille,        region: asie_se,   flag: "🇵🇭" }
+  SYD: { name: Sydney,         region: oceanie,   flag: "🇦🇺" }
+  MEL: { name: Melbourne,      region: oceanie,   flag: "🇦🇺" }
+  BNE: { name: Brisbane,       region: oceanie,   flag: "🇦🇺" }
+  PER: { name: Perth,          region: oceanie,   flag: "🇦🇺" }
+  AKL: { name: Auckland,       region: oceanie,   flag: "🇳🇿" }
+
+# Détection "prix anormalement bas" par rapport à l'historique de la route
+alerts:
+  drop_vs_usual: 0.30        # deal si ≥ 30 % sous le prix habituel
+  exceptional_drop: 0.45     # exceptionnel si ≥ 45 % sous le prix habituel
+  min_history: 6             # nb d'observations avant de faire confiance à l'historique
+  history_days: 60           # fenêtre de calcul du prix habituel
+  resend_after_days: 7       # ne pas re-signaler la même route/mois avant X jours...
+  resend_if_cheaper_by: 0.05 # ...sauf si le prix a encore baissé d'au moins 5 %
+  telegram_max_routes: 12    # nb max de routes par message Telegram
+
+# Sites de chasseurs de deals (erreurs de prix, promos flash) — vérifiés toutes les 2-3 h
+feeds:
+  - { name: Fly4free,         url: "https://www.fly4free.com/feed/",        require_origin: true }
+  - { name: Secret Flying,    url: "https://www.secretflying.com/feed/",    require_origin: true }
+  - { name: Travel-Dealz,     url: "https://travel-dealz.com/feed/",        require_origin: true }
+  - { name: VoyagesPirates,   url: "https://www.voyagespirates.fr/feed",    require_origin: false }  # départs France
+  - { name: ViajerosPiratas,  url: "https://www.viajerospiratas.es/feed",   require_origin: false }  # départs Espagne
+  - { name: PiratinViaggio,   url: "https://www.piratinviaggio.it/feed",    require_origin: false }  # départs Italie
+  - { name: Urlaubspiraten,   url: "https://www.urlaubspiraten.de/feed",    require_origin: false }  # départs Allemagne
+  - { name: HolidayPirates,   url: "https://www.holidaypirates.com/feed",   require_origin: false }  # départs UK
+
+feed_filters:
+  max_age_days: 3
+  # au moins un de ces mots pour l'origine (sauf feeds require_origin: false)
+  origin_keywords: [madrid, london, londres, marseille, paris, milan, barcelona, barcelone, frankfurt,
+                    francfort, amsterdam, spain, espagne, " uk", "united kingdom", france, italy, germany,
+                    "european cities", "from europe", "several european", "many european"]
+  # au moins un de ces mots pour la destination (noms de villes ajoutés automatiquement) — FR/EN/ES/IT/DE
+  destination_keywords: [usa, "united states", états-unis, etats-unis, "estados unidos", "stati uniti",
+                         canada, mexique, mexico, méxico, messico, mexiko, "new york", "nueva york",
+                         japan, japon, japón, giappone, korea, corée, corea, korea, china, chine, cina,
+                         taiwan, thailand, thaïlande, tailandia, thailandia, vietnam, malaysia, malaisie,
+                         malasia, indonesia, indonésie, indonesien, philippines, filipinas, singapore,
+                         singapour, singapur, australia, australie, australien, "new zealand",
+                         nouvelle-zélande, "nueva zelanda", neuseeland, asia, asie, asien, oceania,
+                         océanie, california, californie, hawaii, bali, tokyo, tokio, bangkok, seoul, séoul]
+  exclude_keywords: [cruise, croisière, crucero, crociera, kreuzfahrt, "all incl", "tout inclus",
+                     "todo incluido", "hotel", "hôtel", "étoiles", "resort", "one way", "aller simple",
+                     "meilleures compagnies", "classement", "business class", "weroad", "rundreise",
+                     "circuit", "tour ", "bahn", "amtrak"]
+  # mots qui signalent une ERREUR DE PRIX → mise en avant 🚨
+  error_keywords: ["error fare", "mistake fare", "erreur de prix", "error de tarifa", "errore di prezzo",
+                   "fehlerpreis", "preisfehler", "price glitch", "glitch", "incroyable", "complètement fou",
+                   "insane", "crazy", "🚨"]
